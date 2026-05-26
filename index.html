@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Agent-Assisted User Research & Decision Support OS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.383.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;0,9..40,800;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --brand: #1d4ed8;
+    --brand-light: #3b82f6;
+    --accent: #0ea5e9;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --font: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  html, body { font-family: var(--font); background: var(--bg); color: var(--text); }
+
+  /* ── Hero ── */
+  .hero-bg {
+    position: relative;
+    overflow: hidden;
+    background: #03122b;
+  }
+
+  /* animated ocean canvas sits behind everything */
+  #ocean-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+  }
+
+  /* subtle grid on top of canvas */
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  }
+  .tag-blue { background: rgba(59,130,246,.15); color: #93c5fd; border: 1px solid rgba(59,130,246,.25); }
+  .tag-green { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.25); }
+  .tag-sky { background: rgba(14,165,233,.15); color: #7dd3fc; border: 1px solid rgba(14,165,233,.25); }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    transition: all .28s cubic-bezier(.175,.885,.32,1.06);
+    display: flex; flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0,0,0,.08);
+    border-color: rgba(59,130,246,.4);
+  }
+
+  /* ── Section headers ── */
+  .section-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--brand); background: rgba(29,78,216,.07);
+    border: 1px solid rgba(29,78,216,.15);
+    padding: 4px 14px; border-radius: 999px;
+  }
+
+  /* ── Chart shells ── */
+  .chart-shell {
+    height: 180px; width: 100%; border-radius: 14px;
+    background: #f8fafc; border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .chart-fill { width: 100%; height: 100%; }
+
+  /* ── Mini chat ── */
+  .mini-shell {
+    height: 152px; width: 100%; padding: 10px; border-radius: 14px;
+    background: #f8fafc; border: 1px solid var(--border); overflow: hidden;
+  }
+  .mini-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .mini-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 999px;
+    background: #fff; border: 1px solid var(--border);
+    font-size: 10px; font-weight: 600; color: var(--muted); white-space: nowrap;
+  }
+  .mini-pill i { width: 11px; height: 11px; color: var(--brand-light); }
+  .chat { display: flex; flex-direction: column; gap: 7px; }
+  .msg-row { display: flex; }
+  .msg {
+    max-width: 86%; padding: 7px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 500; line-height: 1.5;
+    border: 1px solid var(--border);
+  }
+  .msg.user { margin-left: auto; background: #fff; color: #1e293b; border-top-right-radius: 4px; }
+  .msg.bot { margin-right: auto; background: rgba(219,234,254,.6); color: #1e40af; border-top-left-radius: 4px; }
+  .hint-row {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 600; color: var(--muted); margin-top: 4px;
+  }
+  .hint-row i { width: 12px; height: 12px; color: var(--brand-light); }
+
+  /* ── Pipeline ── */
+  .pipeline-shell {
+    height: 180px; width: 100%; padding: 10px; border-radius: 14px;
+    background: #f8fafc; border: 1px solid var(--border);
+    overflow: hidden; position: relative;
+  }
+  .pipeline-bg {
+    position: absolute; inset: -40px;
+    background:
+      radial-gradient(closest-side, rgba(59,130,246,.1), transparent 70%),
+      radial-gradient(closest-side, rgba(14,165,233,.08), transparent 65%);
+    opacity: .9;
+  }
+  .pipeline-steps {
+    position: relative; height: 100%; display: flex; flex-direction: column;
+    justify-content: center; gap: 6px;
+  }
+  .step {
+    background: rgba(255,255,255,.9); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 10px;
+    display: flex; gap: 8px; align-items: center; min-width: 0;
+  }
+  .step-ico {
+    width: 28px; height: 28px; border-radius: 10px;
+    background: rgba(29,78,216,.08); border: 1px solid rgba(29,78,216,.15);
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  .step-ico i { width: 14px; height: 14px; color: var(--brand); }
+  .step-title { font-size: 12px; font-weight: 700; color: #1e293b; line-height: 1.2; }
+  .step-sub { font-size: 10px; color: var(--muted); line-height: 1.3; margin-top: 1px; }
+  .arrow {
+    align-self: center; width: 20px; height: 20px; border-radius: 999px;
+    background: rgba(15,23,42,.04); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .arrow i { width: 12px; height: 12px; color: var(--brand-light); }
+
+  /* ── CTA button ── */
+  .btn-primary {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--brand); color: #fff;
+    padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 700;
+    text-decoration: none; transition: background .2s, transform .15s;
+    border: none; cursor: pointer;
+  }
+  .btn-primary:hover { background: #1e40af; transform: translateY(-1px); }
+  .btn-secondary {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: #fff; color: var(--brand);
+    padding: 9px 16px; border-radius: 12px; font-size: 13px; font-weight: 700;
+    text-decoration: none; transition: all .2s;
+    border: 1px solid rgba(29,78,216,.3);
+  }
+  .btn-secondary:hover { background: rgba(29,78,216,.05); }
+
+  .card-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .label-blue { background: rgba(59,130,246,.1); color: #1d4ed8; }
+  .label-green { background: rgba(16,185,129,.1); color: #059669; }
+  .label-purple { background: rgba(139,92,246,.1); color: #7c3aed; }
+  .label-pink { background: rgba(236,72,153,.1); color: #be185d; }
+  .label-indigo { background: rgba(99,102,241,.1); color: #4338ca; }
+  .label-sky { background: rgba(14,165,233,.1); color: #0284c7; }
+
+  /* insight block */
+  .insight-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 10px; border-radius: 10px;
+    background: #fff; border: 1px solid var(--border);
+    font-size: 12px; font-weight: 600; color: #1e293b; line-height: 1.4;
+  }
+  .insight-item i { width: 14px; height: 14px; color: var(--brand-light); flex: 0 0 auto; margin-top: 1px; }
+
+  /* rq box */
+  .rq-box {
+    background: rgba(219,234,254,.3); border: 1px solid rgba(59,130,246,.2);
+    border-radius: 12px; padding: 12px 14px;
+    font-size: 12px; color: #1e40af; line-height: 1.6;
+  }
+  .rq-box strong { font-weight: 700; display: block; margin-bottom: 4px; color: #1d4ed8; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ══════════════ HERO / RESEARCH INTRO ══════════════ -->
+<header class="hero-bg px-6 md:px-10 py-8 md:py-12">
+  <canvas id="ocean-canvas"></canvas>
+  <div class="hero-grid"></div>
+  <div class="relative max-w-5xl mx-auto">
+
+    <!-- meta tags -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <span class="tag tag-blue"><i data-lucide="flask-conical" style="width:11px;height:11px;"></i> Research Prototype</span>
+      <span class="tag tag-green"><i data-lucide="users" style="width:11px;height:11px;"></i> Human-AI Collaboration</span>
+      <span class="tag tag-sky"><i data-lucide="git-branch" style="width:11px;height:11px;"></i> Multi-Agent System</span>
+    </div>
+
+    <!-- title -->
+    <h1 class="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">
+      Agent-Assisted User Research<br class="hidden md:block"/>
+      <span style="color:#93c5fd;">&amp; Decision Support OS</span>
+    </h1>
+
+    <!-- one-liner -->
+    <p class="mt-4 text-base md:text-lg text-slate-300 font-light max-w-2xl leading-relaxed">
+      A web-based multi-agent prototype exploring how LLM agents can assist B2B user research workflows,
+      behavioral diagnosis, and evidence-grounded decision-making — without displacing analyst judgment.
+    </p>
+
+    <!-- research context block -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="rounded-2xl p-5" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Motivation</div>
+        <p class="text-sm text-slate-200 leading-relaxed">
+          User research insights are often fragmented across qualitative interviews, behavioral data, and stakeholder intuitions.
+          Decisions get made without traceable evidence. Can agents help structure this?
+        </p>
+      </div>
+      <div class="rounded-2xl p-5" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Research Questions</div>
+        <ul class="text-sm text-slate-200 leading-relaxed space-y-1 list-none">
+          <li>→ How can agents support sensemaking without overriding user judgment?</li>
+          <li>→ What workflows preserve decision ownership and traceability?</li>
+          <li>→ How should conflicting signals across data types be surfaced?</li>
+        </ul>
+      </div>
+      <div class="rounded-2xl p-5" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Design Approach</div>
+        <p class="text-sm text-slate-200 leading-relaxed">
+          A routing orchestrator delegates to scoped specialist agents. Each returns <em>reasoned output</em>,
+          not just results. High-risk actions require human confirmation. All decisions are logged and traceable.
+        </p>
+      </div>
+    </div>
+
+    <!-- status + links -->
+    <div class="mt-6 flex flex-wrap items-center gap-4">
+      <span class="text-xs font-mono text-slate-400" style="font-family:var(--mono);">
+        Status: Research Prototype (v1) · Not production software
+      </span>
+      <a href="https://github.com/MyraWang0406" target="_blank" rel="noopener"
+         class="btn-secondary" style="padding:7px 16px;font-size:12px;">
+        <i data-lucide="github" style="width:13px;height:13px;"></i> GitHub
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════ MAIN CONTENT ══════════════ -->
+<main class="max-w-7xl mx-auto px-4 md:px-8 py-12 flex flex-col gap-14">
+
+  <!-- ─── SECTION 1: Voice of Customer / User Research ─── -->
+  <section>
+    <div class="flex items-center gap-3 mb-6">
+      <span class="section-label"><i data-lucide="search" style="width:13px;height:13px;"></i> Voice of Customer · User Research</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <!-- Card 1: Sentiment & Competitive Analysis -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-blue">Insight</span>
+          <i data-lucide="radar" class="w-5 h-5" style="color:#3b82f6;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">Sentiment Monitoring &amp; Competitive Analysis</h3>
+
+        <div class="chart-shell mb-4" style="height:160px;padding:10px;">
+          <div class="w-full h-full rounded-xl bg-white border border-slate-200/70 p-3 flex flex-col gap-2">
+            <div class="flex flex-wrap gap-2">
+              <span class="mini-pill"><i data-lucide="scan-eye"></i> Brand monitoring</span>
+              <span class="mini-pill"><i data-lucide="git-compare"></i> Competitor benchmarking</span>
+            </div>
+            <div class="insight-item"><i data-lucide="scan-eye"></i>Own-brand sentiment tracking</div>
+            <div class="insight-item"><i data-lucide="git-compare"></i>Competitor model comparison</div>
+            <div class="insight-item"><i data-lucide="users-round"></i>Industry user needs mapping</div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Tracks domestic and international sentiment via NLP clustering of key topics across smart terminals,
+          EVs, and consumer electronics. Supports product planning and GTM decisions with evidence-cited outputs.
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          How should agents handle contradictory signals across platforms? When should they surface uncertainty rather than synthesize?
+        </div>
+        <a href="https://global-auto-sentiment.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-primary mt-auto">
+          <i data-lucide="bar-chart-3" style="width:14px;height:14px;"></i> View Analysis Dashboard
+        </a>
+      </div>
+
+      <!-- Card 2: Qualitative + Quantitative Research Agent -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-blue">Insight</span>
+          <i data-lucide="file-search" class="w-5 h-5" style="color:#3b82f6;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">Qual + Quant Research Agent</h3>
+
+        <div class="mini-shell mb-4">
+          <div class="mini-top">
+            <span class="mini-pill"><i data-lucide="stethoscope"></i> Pre-sale diagnosis</span>
+            <span class="mini-pill"><i data-lucide="clipboard-list"></i> Research plan</span>
+            <span class="mini-pill"><i data-lucide="link"></i> Evidence chain</span>
+          </div>
+          <div class="chat">
+            <div class="msg-row"><div class="msg user">We need to improve B2B conversion — where should user research start?</div></div>
+            <div class="msg-row"><div class="msg bot">Pre-sale diagnosis → Qual+Quant plan → fix findings to Decision Memory (Trace Graph).</div></div>
+            <div class="hint-row"><i data-lucide="sparkles"></i>Deliverables: interview guide · survey draft · metric definitions · evidence chain</div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Routes B2B diagnostic inputs into structured research plans. Outputs are citation-grounded and
+          stored in a Decision Memory trace graph that constrains future decisions — preventing "evidence laundering."
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          Can a decision-memory architecture reduce the risk of agents generating plausible-but-unsupported recommendations?
+        </div>
+        <a href="https://user-insight.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-primary mt-auto">
+          <i data-lucide="external-link" style="width:14px;height:14px;"></i> Open User Research Agent
+        </a>
+      </div>
+
+      <!-- Card 3: AI Customer Service -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-indigo">Service System</span>
+          <i data-lucide="headset" class="w-5 h-5" style="color:#6366f1;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">AI Customer Service: Consumer &amp; B2B Optimization</h3>
+
+        <div class="mini-shell mb-4">
+          <div class="mini-top">
+            <span class="mini-pill"><i data-lucide="messages-square"></i> Guided dialogue</span>
+            <span class="mini-pill"><i data-lucide="shield-check"></i> Compliance</span>
+          </div>
+          <div class="chat">
+            <div class="msg-row"><div class="msg user">I want to buy car insurance — how do I choose?</div></div>
+            <div class="msg-row"><div class="msg bot">2 quick questions: new or used car? Any loan or commercial use?</div></div>
+            <div class="hint-row"><i data-lucide="sparkles"></i>Multi-turn clarification → plan recommendation → compliance note</div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          <strong>Consumer:</strong> RAG knowledge base from major insurers; multi-turn dialogue narrows to explainable plan recommendations with compliance flags.<br/>
+          <strong>B2B:</strong> NLP + RAG complaint classification, root-cause attribution, and risk alerting — dashboarded for quality review.
+        </p>
+        <div class="flex flex-col gap-2 mt-auto">
+          <a href="https://chatbot-customer-service.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-primary">
+            <i data-lucide="message-circle" style="width:14px;height:14px;"></i> Consumer ChatBot (Insurance)
+          </a>
+          <a href="https://customer-feedback.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-secondary">
+            <i data-lucide="building-2" style="width:14px;height:14px;"></i> B2B Complaint Copilot
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SECTION 2: Data Analysis ─── -->
+  <section>
+    <div class="flex items-center gap-3 mb-6">
+      <span class="section-label"><i data-lucide="bar-chart-3" style="width:13px;height:13px;"></i> Behavioral Analytics &amp; Data Analysis</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <!-- Card 4: Experiment Console -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-green">A/B Testing</span>
+          <i data-lucide="flask-conical" class="w-5 h-5" style="color:#10b981;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">Advertiser Chain White-box Experiment Console</h3>
+
+        <div class="chart-shell mb-4" style="height:160px;padding:12px;">
+          <div class="w-full h-full rounded-xl bg-white border border-slate-200/70 p-3 flex flex-col justify-between">
+            <div class="flex flex-wrap gap-2">
+              <span class="mini-pill"><i data-lucide="play-circle"></i> Running</span>
+              <span class="mini-pill"><i data-lucide="shield-alert"></i> Guardrails</span>
+              <span class="mini-pill"><i data-lucide="search-check"></i> Diagnosis</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-2">
+              <div class="rounded-xl bg-slate-50 border border-slate-200 p-2 text-center">
+                <div class="text-xs font-bold text-slate-400">Total</div>
+                <div class="text-xl font-black text-slate-900">24</div>
+              </div>
+              <div class="rounded-xl bg-slate-50 border border-slate-200 p-2 text-center">
+                <div class="text-xs font-bold text-slate-400">Watching</div>
+                <div class="text-xl font-black text-slate-900">5</div>
+              </div>
+              <div class="rounded-xl bg-slate-50 border border-slate-200 p-2 text-center">
+                <div class="text-xs font-bold text-slate-400">Alerts</div>
+                <div class="text-xl font-black" style="color:#e11d48;">1</div>
+              </div>
+            </div>
+            <div class="text-xs text-slate-400 mt-2 flex items-center gap-1">
+              <i data-lucide="sparkles" style="width:12px;height:12px;color:#3b82f6;"></i>
+              Unified view: results · guardrail risks · bottleneck diagnosis
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Unified experiment workbench for ADX/SSP/DSP: metric lift, guardrail variance,
+          funnel bottlenecks, and automated post-mortem notes — all archived in one place.
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          How do analysts decide to override or trust agent-generated experiment conclusions? What triggers confirmation-seeking behavior?
+        </div>
+        <div class="flex flex-col gap-2 mt-auto">
+          <a href="https://adx-experiment-v2.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-primary">
+            <i data-lucide="flask-conical" style="width:14px;height:14px;"></i> Experiment Console
+          </a>
+          <a href="https://adx.mirix.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-secondary">
+            <i data-lucide="layout-dashboard" style="width:14px;height:14px;"></i> Advertiser White-box Dashboard
+          </a>
+        </div>
+      </div>
+
+      <!-- Card 5: Lifecycle & Retention Agent -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-purple">Lifecycle</span>
+          <i data-lucide="layers" class="w-5 h-5" style="color:#8b5cf6;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">Lifecycle Diagnosis &amp; Automated Retention Agent</h3>
+
+        <div class="chart-shell mb-4">
+          <div class="chart-fill" id="funnelContainer"></div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Diagnoses funnel drop-off points via user journey and lifecycle segmentation.
+          Layered user models drive automated outreach (push / EDM / SMS) with vouchers,
+          points, and time-limited incentives calibrated to segment and channel.
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          When agent-defined segments are used to target users, does analyst interpretability of segment logic affect decision confidence?
+        </div>
+        <a href="https://merchant-ops-copilot.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-primary mt-auto">
+          <i data-lucide="target" style="width:14px;height:14px;"></i> Lifecycle Retention Copilot
+        </a>
+      </div>
+
+      <!-- Card 6: Channel Attribution Dashboard -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-green">Attribution</span>
+          <i data-lucide="activity" class="w-5 h-5" style="color:#10b981;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">Multi-Touch Channel Attribution Dashboard</h3>
+
+        <div class="chart-shell mb-4">
+          <div class="chart-fill" id="sankeyContainer"></div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Time-decay multi-touch attribution model validates incremental conversion contribution
+          of AI-assisted shopping via switchback window experiments and channel-level inquiry/conversion tracking.
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          How should agents communicate attribution uncertainty to non-technical decision-makers without inducing over-confidence?
+        </div>
+        <a href="https://traffic-attribution.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-primary mt-auto">
+          <i data-lucide="share-2" style="width:14px;height:14px;"></i> Channel Attribution View
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SECTION 3: AI Applications ─── -->
+  <section>
+    <div class="flex items-center gap-3 mb-6">
+      <span class="section-label"><i data-lucide="cpu" style="width:13px;height:13px;"></i> AI Applications · Multimodal Generation &amp; Evaluation</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <!-- Card 7: Dance Flow -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-indigo">AIGC · Multimodal</span>
+          <i data-lucide="camera" class="w-5 h-5" style="color:#6366f1;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">Dance Flow: Human-in-the-Loop AI Interaction</h3>
+
+        <div class="mini-shell mb-4">
+          <div class="mini-top">
+            <span class="mini-pill"><i data-lucide="video"></i> Reference video</span>
+            <span class="mini-pill"><i data-lucide="scan"></i> Pose estimation</span>
+            <span class="mini-pill"><i data-lucide="sparkles"></i> Gemini</span>
+          </div>
+          <div class="chat">
+            <div class="msg-row"><div class="msg user">I want to learn this dance but can't keep up with the tempo…</div></div>
+            <div class="msg-row"><div class="msg bot">Detected offset: right arm angle insufficient → suggest 0.75× speed + 3 repetitions.</div></div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Uploads a reference video to extract skeleton keyframes; webcam aligns and scores user movement in real time.
+          Gemini generates corrective feedback and practice recommendations.
+          Pipeline: frame extraction (0.1s) → pose alignment → similarity scoring → adaptive slow-down → review suggestions.
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          How does real-time AI feedback shape user agency in embodied skill acquisition? Does it augment or replace self-monitoring?
+        </div>
+        <a href="https://dance-ai.pages.dev" target="_blank" rel="noopener" class="btn-primary mt-auto">
+          <i data-lucide="external-link" style="width:14px;height:14px;"></i> Google Hackathon Devpost
+        </a>
+      </div>
+
+      <!-- Card 8: Reflective AI / What-if -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-sky">AIGC · Reflective AI</span>
+          <i data-lucide="git-branch" class="w-5 h-5" style="color:#0ea5e9;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">What-if: Reflective AI for Life Decision-Making</h3>
+
+        <div class="mini-shell mb-4">
+          <div class="mini-top">
+            <span class="mini-pill"><i data-lucide="calendar"></i> Key events</span>
+            <span class="mini-pill"><i data-lucide="file-text"></i> Causal mapping</span>
+          </div>
+          <div class="chat">
+            <div class="msg-row"><div class="msg user">Stuck on career vs. city vs. relationship — feels like every choice forecloses another…</div></div>
+            <div class="msg-row"><div class="msg bot">Let's map the key decision nodes first and run alternative what-if paths — who else's perspective matters here?</div></div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Transforms user narratives into structured decision scenarios with roles, causal chains, assumptions,
+          and alternative what-if paths. Role-based agents (counterpart, observer, future self) support
+          perspective-taking and reduce decision foreclosure. <strong>Memorial Award, Memory Genesis Competition 2026.</strong>
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          Do role-based agents increase perceived decision ownership? How does perspective diversity affect reflection depth?
+        </div>
+        <a href="https://what-if.myrawzm0406.online/" target="_blank" rel="noopener" class="btn-primary mt-auto">
+          <i data-lucide="external-link" style="width:14px;height:14px;"></i> Open What-if Prototype
+        </a>
+      </div>
+
+      <!-- Card 9: Creative Insight Pipeline -->
+      <div class="card p-6">
+        <div class="flex justify-between items-start mb-4">
+          <span class="card-label label-pink">Creative</span>
+          <i data-lucide="clapperboard" class="w-5 h-5" style="color:#ec4899;"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2 leading-tight">Creative Insight &amp; Content Generation Pipeline</h3>
+
+        <div class="pipeline-shell mb-4">
+          <div class="pipeline-bg"></div>
+          <div class="pipeline-steps">
+            <div class="step">
+              <div class="step-ico"><i data-lucide="sparkles"></i></div>
+              <div>
+                <div class="step-title">Sentiment Insight</div>
+                <div class="step-sub">Hot keywords · complaints · reputation shifts</div>
+              </div>
+            </div>
+            <div class="arrow"><i data-lucide="chevron-down"></i></div>
+            <div class="step">
+              <div class="step-ico"><i data-lucide="user-round"></i></div>
+              <div>
+                <div class="step-title">User Research</div>
+                <div class="step-sub">Survey · interview · segmented persona → scene motivation</div>
+              </div>
+            </div>
+            <div class="arrow"><i data-lucide="chevron-down"></i></div>
+            <div class="step">
+              <div class="step-ico"><i data-lucide="library"></i></div>
+              <div>
+                <div class="step-title">Creative Insight Library</div>
+                <div class="step-sub">Tag decomposition · eval set generation · prior + posterior calibration</div>
+              </div>
+            </div>
+            <div class="arrow"><i data-lucide="chevron-down"></i></div>
+            <div class="step">
+              <div class="step-ico"><i data-lucide="file-pen-line"></i></div>
+              <div>
+                <div class="step-title">Script Generation</div>
+                <div class="step-sub">One-click script → multi-platform distribution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-500 leading-relaxed mb-4 flex-1">
+          Distills scene-level user needs and psychological motivations from sentiment + research.
+          Generates labeled evaluation sets for creative variants; prior scoring + small-traffic posterior
+          calibration selects top-performing material templates.
+        </p>
+        <div class="rq-box mb-4">
+          <strong>Research interest</strong>
+          Does agent-generated creative framing narrow the search space for human ideation, or does it anchor creativity too early?
+        </div>
+        <a href="https://matixmirix060202.streamlit.app/" target="_blank" rel="noopener" class="btn-primary mt-auto">
+          <i data-lucide="layout-grid" style="width:14px;height:14px;"></i> MECE Combination Dashboard
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── Limitations & Related Work ─── -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="card p-6">
+      <h3 class="text-base font-bold mb-3 flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4" style="color:#f59e0b;"></i>
+        Limitations &amp; Scope
+      </h3>
+      <ul class="text-sm text-slate-600 space-y-2 leading-relaxed">
+        <li class="flex gap-2"><span style="color:#f59e0b;">→</span> Research prototype, not production software — routing is prompt-based, not learned</li>
+        <li class="flex gap-2"><span style="color:#f59e0b;">→</span> No formal user study conducted; evaluation dimensions are design-intent only</li>
+        <li class="flex gap-2"><span style="color:#f59e0b;">→</span> All demo scenarios are synthetic or researcher-constructed</li>
+        <li class="flex gap-2"><span style="color:#f59e0b;">→</span> Optimized for exploratory demonstration, not latency or reliability</li>
+      </ul>
+    </div>
+    <div class="card p-6">
+      <h3 class="text-base font-bold mb-3 flex items-center gap-2">
+        <i data-lucide="book-open" class="w-4 h-4" style="color:#3b82f6;"></i>
+        Related Work
+      </h3>
+      <ul class="text-sm text-slate-600 space-y-2 leading-relaxed">
+        <li class="flex gap-2"><span style="color:#3b82f6;">→</span> Sensemaking frameworks (Weick 1995; Russell et al. 1993)</li>
+        <li class="flex gap-2"><span style="color:#3b82f6;">→</span> Human-in-the-loop AI design (Amershi et al. 2019)</li>
+        <li class="flex gap-2"><span style="color:#3b82f6;">→</span> Decision support &amp; traceability (Klein et al. 2007)</li>
+        <li class="flex gap-2"><span style="color:#3b82f6;">→</span> LLM agent architectures (Park et al. 2023 — Generative Agents)</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ─── Footer ─── -->
+  <footer class="border-t border-slate-200 pt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div>
+      <p class="text-sm font-semibold text-slate-700">Zhimin (Myra) Wang</p>
+      <p class="text-xs text-slate-400 mt-1">MEM Candidate · Shanghai Jiao Tong University · Open to PhD opportunities in HCI / CSCW / AI-assisted decision-making</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="https://github.com/MyraWang0406" target="_blank" rel="noopener" class="btn-secondary" style="padding:6px 14px;font-size:12px;">
+        <i data-lucide="github" style="width:13px;height:13px;"></i> GitHub
+      </a>
+      <a href="mailto:myrawzm0406@163.com" class="btn-secondary" style="padding:6px 14px;font-size:12px;">
+        <i data-lucide="mail" style="width:13px;height:13px;"></i> Contact
+      </a>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  lucide.createIcons();
+
+  const FONT = 'DM Sans, ui-sans-serif, system-ui, sans-serif';
+
+  // Funnel
+  const funnel = echarts.init(document.getElementById('funnelContainer'));
+  funnel.setOption({
+    backgroundColor:'transparent', textStyle:{fontFamily:FONT},
+    tooltip:{trigger:'item',formatter:'{b}: {c}%'},
+    color:['#1d4ed8','#3b82f6','#60a5fa','#93c5fd'],
+    series:[{
+      type:'funnel', left:'6%', right:'6%', top:4, bottom:4, width:'88%',
+      min:0, max:100, sort:'descending', gap:2,
+      label:{show:true,position:'inside',fontSize:10,color:'#fff',fontFamily:FONT},
+      data:[
+        {value:100,name:'Awareness'},
+        {value:65,name:'Inquiry'},
+        {value:38,name:'Intent'},
+        {value:12,name:'Converted'}
+      ]
+    }]
+  });
+
+  // Sankey
+  const sankey = echarts.init(document.getElementById('sankeyContainer'));
+  sankey.setOption({
+    backgroundColor:'transparent', textStyle:{fontFamily:FONT},
+    tooltip:{trigger:'item'},
+    series:[{
+      type:'sankey', left:0, right:0, top:4, bottom:4,
+      nodeGap:10, nodeWidth:12,
+      emphasis:{focus:'adjacency'},
+      label:{fontSize:10,color:'#334155',fontWeight:700,fontFamily:FONT},
+      lineStyle:{color:'source',opacity:.35,curveness:.5},
+      data:[
+        {name:'Paid Ads',itemStyle:{color:'#1d4ed8'}},
+        {name:'Affiliate',itemStyle:{color:'#3b82f6'}},
+        {name:'KOL',itemStyle:{color:'#60a5fa'}},
+        {name:'ASA',itemStyle:{color:'#93c5fd'}},
+        {name:'ASO',itemStyle:{color:'#bfdbfe'}},
+        {name:'High-intent',itemStyle:{color:'#0ea5e9'}},
+        {name:'Converted',itemStyle:{color:'#2563eb'}},
+        {name:'Churned',itemStyle:{color:'#94a3b8'}}
+      ],
+      links:[
+        {source:'Paid Ads',target:'High-intent',value:50},
+        {source:'Affiliate',target:'High-intent',value:35},
+        {source:'KOL',target:'High-intent',value:22},
+        {source:'ASA',target:'High-intent',value:14},
+        {source:'ASO',target:'High-intent',value:8},
+        {source:'High-intent',target:'Converted',value:28},
+        {source:'High-intent',target:'Churned',value:101}
+      ]
+    }]
+  });
+
+  window.addEventListener('resize',()=>{ funnel.resize(); sankey.resize(); });
+}); // end DOMContentLoaded
+</script>
+
+<script>
+/* ── Slow ocean light drift ── */
+(function() {
+  const canvas = document.getElementById('ocean-canvas');
+  const ctx    = canvas.getContext('2d');
+  const header = canvas.parentElement;
+
+  function resize() {
+    canvas.width  = header.offsetWidth;
+    canvas.height = header.offsetHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  /*
+    Light orbs: each drifts along a gentle Lissajous path.
+    cx/cy = fractional center start, rx/ry = drift radius fraction,
+    px/py = phase offsets, spd = full-cycle seconds, r = radius fraction, op = peak opacity
+  */
+  const orbs = [
+    // large right-center bright bloom — like your reference image
+    { cx:.72, cy:.45, rx:.10, ry:.08, px:0,    py:1.2, spd:28, r:.55, op:.22, rgb:'56,189,248'  },
+    // mid-left secondary glow
+    { cx:.28, cy:.55, rx:.08, ry:.06, px:2.1,  py:0.5, spd:34, r:.40, op:.13, rgb:'96,165,250'  },
+    // subtle deep center blue
+    { cx:.50, cy:.35, rx:.12, ry:.07, px:1.0,  py:2.8, spd:42, r:.50, op:.09, rgb:'14,165,233'  },
+    // faint bottom-right accent
+    { cx:.82, cy:.80, rx:.06, ry:.05, px:3.3,  py:1.7, spd:38, r:.30, op:.07, rgb:'125,211,252' },
+  ];
+
+  function draw(ts) {
+    const t = ts * 0.001;
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // ── Base: deep navy left → steel blue right (matches reference) ──
+    const base = ctx.createLinearGradient(0, 0, W, H);
+    base.addColorStop(0,    '#0b1f3a');
+    base.addColorStop(0.45, '#10387a');
+    base.addColorStop(0.75, '#1a5fa8');
+    base.addColorStop(1,    '#2080c8');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, W, H);
+
+    // ── Drifting light orbs ──
+    orbs.forEach(o => {
+      const cycle = (Math.PI * 2) / o.spd;
+      const x = (o.cx + o.rx * Math.sin(t * cycle + o.px)) * W;
+      const y = (o.cy + o.ry * Math.sin(t * cycle * 0.7 + o.py)) * H;
+      const r = o.r * Math.min(W, H);
+
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0,   `rgba(${o.rgb},${o.op})`);
+      g.addColorStop(0.5, `rgba(${o.rgb},${o.op * 0.3})`);
+      g.addColorStop(1,   `rgba(${o.rgb},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    });
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
