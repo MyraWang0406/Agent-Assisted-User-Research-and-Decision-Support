@@ -45,7 +45,7 @@ A web-based multi-agent prototype for B2B user research and growth diagnostics. 
 
 ## Research Background
 
-5+ years of industry experience in Internet Industry before returning to research. My practice-grounded perspective shapes how I think about real decision environments — not just laboratory tasks.
+5+ years of industry experience in Internet Industry before returning to research. Industry experience in growth and user research gives me first-hand insight into how decisions get made under real organizational constraints.
 
 **Current thesis:** Requirements Governance and Decision Traceability in Digital Platforms  
 **Methods:** scenario-based study design, qualitative analysis, systems thinking, case study
